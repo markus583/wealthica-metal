@@ -1,6 +1,6 @@
 # Wealthica Metals Power-Up
 
-A static browser Power-Up for two physical bullion holdings: gold in fine troy ounces and silver in fine grams. Fetches EUR metal prices, previews values, and updates selected Wealthica assets only when you press **Update Wealthica**.
+A static browser Power-Up for two physical bullion holdings: gold in fine troy ounces and silver in fine grams. Fetches EUR metal prices and automatically updates selected Wealthica assets using your saved settings when opened, and hourly while open and visible.
 
 ## Publish on GitHub Pages
 
@@ -18,10 +18,10 @@ The site needs no build, server, domain purchase, login, or API keys. Do not upl
 2. Open the Power-Up and enter your quantities. Use **fine-metal content**, not the gross weight of an alloy coin. One troy ounce is exactly 31.1034768 grams.
 3. Choose the matching EUR asset for each metal. Assets are never matched silently by name, created, or deleted.
 4. A **0% resale deduction** values metal at the feed price. Optionally enter your own dealer resale deduction. This is a model, not a live coin/bar dealer quote; do not infer precise sale proceeds.
-5. Press **Save settings** to keep configuration in Wealthica. Saving settings does not change asset values.
-6. Press **Refresh prices & preview**, check the current/new values, then **Update Wealthica**. Updates change only `market_value` and are verified by reading back the assets.
+5. Press **Refresh prices & preview** to check your quantities and selected targets before saving.
+6. Press **Save settings** once. This stores your configuration in Wealthica and applies the values. Subsequent openings update automatically without pressing **Update Wealthica**. Updates change only `market_value` and are verified by reading back the assets.
 
-Prices refresh on opening. There is no background daily job, and no automatic asset write on opening. Quotes are cached in memory for 30 seconds. The price timestamps are displayed; quotes older than 96 hours (allowing weekends/holidays) and previews older than 5 minutes cannot be written. A change above 50% requires checking the corresponding box. If one update fails or cannot be verified, further writes stop and the page lists any completed writes; there is no automatic rollback or retry.
+Prices refresh on opening and hourly while the page is open and visible. Automatic writes require quantities and targets to match the saved configuration; unsaved edits are previewed only. Unchanged values cause no automatic writes. There is no background daily job while the page is closed. Quotes are cached in memory for 30 seconds. The price timestamps are displayed; quotes older than 96 hours (allowing weekends/holidays) and previews older than 5 minutes cannot be written. A change above 50% pauses automatic updates and requires checking the corresponding box before a manual update. If one update fails or cannot be verified, further automatic writes pause for that session and the page lists any completed writes; there is no automatic rollback or retry. Check the assets before manually retrying. Browser suspension, authentication expiry and price-service failures can prevent updates.
 
 ## Data and dependencies
 
@@ -32,7 +32,7 @@ Prices refresh on opening. There is no background daily job, and no automatic as
 
 ## Validation and limits
 
-Run `node --test tests/core.test.mjs`. Tests cover unit conversion, invalid feeds, stale previews, target validation, concurrent changes, market-value-only writes and partial failures.
+Run `node --experimental-vm-modules --test tests/*.test.mjs`. Tests cover saved-settings automatic updates on opening, first-use/standalone isolation, unsaved edits, unchanged values, paused retries, unit conversion, invalid feeds, stale previews, target validation, concurrent changes, market-value-only writes and partial failures.
 
 The public price feeds were fetched successfully during development. The financial API flow is tested with a simulated Wealthica parent, not your authenticated Wealthica account. Actual Developer Add-on availability, permissions and writes must be confirmed in your signed-in account after loading the hosted URL. Price service uptime and future API changes are external dependencies.
 

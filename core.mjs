@@ -3,6 +3,13 @@ export const MAX_QUOTE_AGE_MS = 96 * 60 * 60 * 1000;
 export const MAX_PREVIEW_AGE_MS = 5 * 60 * 1000;
 const validId = /^[a-f\d]{24}$/i;
 
+export function shouldAutoUpdate(saved, current, plan, blocked = false) {
+  if (blocked || !saved || !plan) return false;
+  const keys = ['goldOz', 'silverGrams', 'goldDiscount', 'silverDiscount', 'goldAsset', 'silverAsset'];
+  return keys.every(key => saved[key] === current[key]) &&
+    plan.items.some(item => Math.abs(item.after - item.before) > 0.005);
+}
+
 export function validateQuote(raw, symbol, now = Date.now()) {
   if (!raw || raw.symbol !== symbol || raw.currency !== 'EUR') {
     throw new Error(`${symbol}: the feed returned a different metal or currency.`);

@@ -1,9 +1,10 @@
-import { calculateValues, validateQuote, makePlan, executePlan } from './core.mjs';
+import { calculateValues, validateQuote, makePlan, executePlan, shouldAutoUpdate } from './core.mjs';
 
 const $ = id => document.getElementById(id);
 const money = value => new Intl.NumberFormat('en-AT', { style: 'currency', currency: 'EUR' }).format(value);
 let addon = null, connected = false, busy = false, assets = [], quotes = null, plan = null;
 let fetchedAt = 0, savedData = {}, refreshPromise = null;
+let automaticBlocked = false;
 const fields = { goldOz: 'gold-oz', silverGrams: 'silver-grams', goldDiscount: 'gold-discount', silverDiscount: 'silver-discount', goldAsset: 'gold-asset', silverAsset: 'silver-asset' };
 function config() {
   return Object.fromEntries(Object.entries(fields).map(([key, id]) => [key, key.endsWith('Asset') ? $(id).value : ($(id).value.trim() === '' ? NaN : Number($(id).value))]));
@@ -103,6 +104,12 @@ async function refresh({ initial = false } = {}) {
     finally { busy = false; buttons(); }
   })();
   try { await refreshPromise; } finally { refreshPromise = null; }
+  if (connected && shouldAutoUpdate(savedData.metalsTrackerV1, config(), plan, automaticBlocked)) {
+    await updateValues({ automatic: true });
+  } else if (connected && plan && savedData.metalsTrackerV1 && !automaticBlocked &&
+    !plan.items.some(item => Math.abs(item.after - item.before) > 0.005)) {
+    message('Metal values are already up to date.', 'success');
+  }
 }
 $('settings').addEventListener('submit', event => event.preventDefault());
 for (const id of Object.values(fields)) $(id).addEventListener('input', () => {
@@ -116,36 +123,44 @@ $('save').addEventListener('click', async () => {
     // Validate selections and quantities without making any asset changes.
     if (!quotes) throw new Error('Refresh prices before saving settings.');
     makePlan(settings, quotes, assets);
-    savedData = { ...savedData, metalsTrackerV1: settings };
-    await addon.saveData(savedData);
-    message('Settings saved in Wealthica. Asset values have not been changed.', 'success');
+    const nextData = { ...savedData, metalsTrackerV1: settings };
+    await addon.saveData(nextData);
+    savedData = nextData;
+    message('Settings saved. Your saved holdings update automatically when this Power-Up opens.', 'success');
   } catch (error) { message(error.message || String(error), 'error'); }
   finally { busy = false; buttons(); }
+  await refresh();
 });
-$('update').addEventListener('click', async () => {
+async function updateValues({ automatic = false } = {}) {
   if (busy || !plan) return;
   const activePlan = plan;
   busy = true; buttons(); $('results').replaceChildren();
   message('Checking the selected assets and updating their market values…');
   try {
-    const results = await executePlan(activePlan, request, { allowLargeChange: $('large-change').checked });
+    const results = await executePlan(activePlan, request, { allowLargeChange: !automatic && $('large-change').checked });
     for (const item of results) {
       const row = document.createElement('div'); row.className = `result-row ${item.status}`;
       row.textContent = item.status === 'verified' ? `${item.name}: ${money(item.after)} saved and verified.` : `${item.name}: update unconfirmed. ${item.error} Check this asset in Wealthica before retrying.`;
       $('results').append(row);
     }
     if (results.length === 2 && results.every(r => r.status === 'verified')) {
+      automaticBlocked = false;
       message('Both metal values updated. Refresh the Wealthica dashboard to see them.', 'success');
     } else {
+      automaticBlocked = true;
       const completed = results.filter(r => r.status === 'verified').length;
       message(`${completed} of 2 updates verified. Further updates stopped; check the results below.`, 'error');
     }
-  } catch (error) { message(error.message || String(error), 'error'); }
+  } catch (error) {
+    automaticBlocked = true;
+    message(`${error.message || String(error)} Automatic updates paused for this session; check your assets before retrying.`, 'error');
+  }
   finally {
     plan = null; busy = false; buttons();
     ['gold', 'silver'].forEach(m => { $(`${m}-change`).textContent = 'Refresh the preview before another update.'; });
   }
-});
+}
+$('update').addEventListener('click', () => updateValues());
 
 if (window.parent !== window && typeof window.Addon === 'function') {
   addon = new window.Addon();
@@ -156,6 +171,9 @@ if (window.parent !== window && typeof window.Addon === 'function') {
     await refresh({ initial: true });
   });
   addon.on('reload', () => { if (!busy) refresh(); });
+  setInterval(() => {
+    if (connected && !busy && !automaticBlocked && document.visibilityState === 'visible') refresh();
+  }, 60 * 60 * 1000);
   setTimeout(() => {
     if (!connected) {
       $('connection').textContent = 'No Wealthica connection received. Load this URL through Wealthica’s Developer Add-on. You can still preview values here.';

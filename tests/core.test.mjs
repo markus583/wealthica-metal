@@ -1,10 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculateValues, makePlan, executePlan, MAX_QUOTE_AGE_MS, MAX_PREVIEW_AGE_MS } from '../core.mjs';
+import { calculateValues, makePlan, executePlan, shouldAutoUpdate, MAX_QUOTE_AGE_MS, MAX_PREVIEW_AGE_MS } from '../core.mjs';
 const now = Date.parse('2026-10-04T21:10:00Z');
 const config = { goldOz: 2.5, silverGrams: 311.034768, goldDiscount: 0, silverDiscount: 0, goldAsset: 'a'.repeat(24), silverAsset: 'b'.repeat(24) };
 const quotes = { gold: { symbol: 'XAU', currency: 'EUR', price: 3680, updatedAt: new Date(now).toISOString() }, silver: { symbol: 'XAG', currency: 'EUR', price: 54, updatedAt: new Date(now).toISOString() } };
 const assets = [{ _id: config.goldAsset, name: 'Gold', currency: 'eur', market_value: 9000 }, { _id: config.silverAsset, name: 'Silver', currency: 'eur', market_value: 500 }];
+test('automatic writes use saved settings only and stop on unchanged values or a paused session', () => {
+  const plan = makePlan(config, quotes, assets, now);
+  assert.equal(shouldAutoUpdate(config, config, plan), true);
+  assert.equal(shouldAutoUpdate(undefined, config, plan), false);
+  assert.equal(shouldAutoUpdate(config, { ...config, goldOz: 3 }, plan), false);
+  assert.equal(shouldAutoUpdate(config, { ...config, goldAsset: 'c'.repeat(24) }, plan), false);
+  assert.equal(shouldAutoUpdate(config, config, plan, true), false);
+  assert.equal(shouldAutoUpdate(config, config, null), false);
+  const unchanged = { ...plan, items: plan.items.map(i => ({ ...i, before: i.after })) };
+  assert.equal(shouldAutoUpdate(config, config, unchanged), false);
+});
 function mock(overrides = {}) {
   const records = structuredClone(assets), calls = [];
   return { calls, records, request: async args => {
