@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Metals · Wealthica Power-Up</title>
+  <link rel="stylesheet" href="styles.css">
+  <script defer src="vendor/addon.min.js"></script>
+  <script type="module" src="app.mjs"></script>
+</head>
+<body>
+<main>
+  <header><div class="eyebrow">PHYSICAL HOLDINGS</div><h1>Metals</h1><p>Current prices. Your quantities. Two clear values.</p></header>
+  <div id="connection" class="banner" role="status">Opening calculator…</div>
+  <form id="settings">
+    <div class="cards">
+      <section class="card gold"><div class="metal-label"><span class="dot"></span><h2>Gold</h2><span class="unit">XAU / EUR</span></div>
+        <div class="value" id="gold-value">—</div><div class="quote" id="gold-quote">Price not loaded</div>
+        <label for="gold-oz">Fine gold · troy ounces</label><input id="gold-oz" type="number" min="0.000001" step="any" inputmode="decimal" placeholder="Enter your quantity" required>
+        <label for="gold-discount">Resale deduction · %</label><input id="gold-discount" type="number" min="0" max="99.99" step="any" inputmode="decimal" value="0">
+        <label for="gold-asset">Wealthica asset · EUR</label><select id="gold-asset" disabled><option value="">Open inside Wealthica to select</option></select>
+        <div class="change" id="gold-change"></div>
+      </section>
+      <section class="card silver"><div class="metal-label"><span class="dot"></span><h2>Silver</h2><span class="unit">XAG / EUR</span></div>
+        <div class="value" id="silver-value">—</div><div class="quote" id="silver-quote">Price not loaded</div>
+        <label for="silver-grams">Fine silver · grams</label><input id="silver-grams" type="number" min="0.000001" step="any" inputmode="decimal" placeholder="Enter your quantity" required>
+        <label for="silver-discount">Resale deduction · %</label><input id="silver-discount" type="number" min="0" max="99.99" step="any" inputmode="decimal" value="0">
+        <label for="silver-asset">Wealthica asset · EUR</label><select id="silver-asset" disabled><option value="">Open inside Wealthica to select</option></select>
+        <div class="change" id="silver-change"></div>
+      </section>
+    </div>
+    <div class="total"><span>Estimated total</span><strong id="total-value">—</strong><span class="currency">EUR</span></div>
+    <p class="explanation">With a 0% deduction, values follow the metal-price feed. A resale deduction is your assumption about dealer buyback spreads; this is not a dealer quote. Enter fine-metal weight.</p>
+    <div class="actions"><button id="refresh" type="button">Refresh prices &amp; preview</button><button id="save" type="button" class="secondary" disabled>Save settings</button><button id="update" type="button" class="primary" disabled>Update Wealthica</button></div>
+    <label class="check"><input id="large-change" type="checkbox"> Allow a value change above 50% after checking the selected assets</label>
+  </form>
+  <div id="status" class="status" role="status" aria-live="polite">Enter your quantities to calculate their value.</div>
+  <div id="results" class="results" aria-live="polite"></div>
+  <footer><p>Prices refresh when you open this Power-Up. Wealthica values change only when you press Update Wealthica. Nothing runs while this page is closed.</p><p><a href="https://gold-api.com/docs" target="_blank" rel="noopener noreferrer">Price source: Gold API</a> · <span id="retrieved">Not fetched yet</span></p></footer>
+</main>
+</body>
+</html>
