@@ -134,12 +134,14 @@ export function makeEntry(input, accounts, institutions, config, { id = crypto.r
 }
 export function makeAmend(group, input, accounts, institutions, config, { remove = false, id = crypto.randomUUID(), now = Date.now() } = {}) {
   if (!group.complete) throw new Error('A transfer leg is missing. Refresh or check Wealthica before editing.');
+  const firstAccount = accounts.find(a => a.key === keyOf(group.transactions[0]?.institution, group.transactions[0]?.investment));
   const changes = [], steps = [];
   for (const transaction of [...group.transactions].sort((a, b) => metadata(a).leg - metadata(b).leg)) {
     const meta = metadata(transaction), account = accounts.find(a => a.key === keyOf(transaction.institution, transaction.investment)); assertAccount(account, config);
     if (meta.created < config.checkpoints[account.key].time) throw new Error('This entry was included in a later balance check. It can no longer change the balance from here.');
     const old = minor(transaction.currency_amount, account.currency);
-    const newAmount = remove ? 0 : parseAmount(meta.leg ? input.received : input.amount, account.currency) * (old < 0 ? -1 : 1);
+    const amountInput = meta.leg && account.currency !== firstAccount?.currency ? input.received : input.amount;
+    const newAmount = remove ? 0 : parseAmount(amountInput, account.currency) * (old < 0 ? -1 : 1);
     const body = { type: transaction.type, currency_amount: remove ? transaction.currency_amount : major(newAmount, account.currency), deleted: remove };
     if (!remove) {
       const description = String(input.description || '').trim();
