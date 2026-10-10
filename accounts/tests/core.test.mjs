@@ -68,6 +68,14 @@ test('external transfers touch only the manual side, with correct incoming/outgo
   for(const direction of ['out','in']){const op=makeEntry({...f.input,kind:'external',direction},f.accounts,f.institutions,f.cfg);assert.equal(op.changes.length,1);assert.equal(op.steps.filter(s=>s.action==='create').length,1);await finishOperation(op,f.api,persist);await fresh(f);}
   assert.equal(f.accounts[0].balance,initial);
 });
+test('foreign-currency transfer edits use the correct units when the API returns receiving leg first',async()=>{
+  const f=await fixture(),source=f.accounts[0],target=f.accounts[2];
+  await finishOperation(makeEntry({...f.input,kind:'transfer',to:target.key,amount:'100',received:'94'},f.accounts,f.institutions,f.cfg),f.api,persist);await fresh(f);
+  const group=(await groups(f))[0];group.transactions.reverse();
+  await finishOperation(makeAmend(group,{amount:'200',received:'185',description:'Corrected FX transfer'},f.accounts,f.institutions,f.cfg),f.api,persist);await fresh(f);
+  assert.equal(f.accounts[0].balance,source.balance-20000);
+  assert.equal(f.accounts[2].balance,target.balance+18500);
+});
 test('stale balance or sibling changes block a preview before any transaction is posted',async()=>{
   const f=await fixture(),op=makeEntry(f.input,f.accounts,f.institutions,f.cfg);
   const rows=clone(f.institutions[0].investments);rows[1].currency_value+=10;
