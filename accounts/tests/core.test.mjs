@@ -46,6 +46,14 @@ test('same-institution transfer is one balance write, conserves money and preser
   assert.equal(f.accounts[0].balance,a.balance-50000);assert.equal(f.accounts[1].balance,b.balance+50000);
   assert.equal(f.accounts[0].balance+f.accounts[1].balance,a.balance+b.balance);assert.equal((await groups(f))[0].complete,true);
 });
+test('editing a same-currency transfer cannot create money from mismatched receiving input',async()=>{
+  const f=await fixture(),total=f.accounts[0].balance+f.accounts[1].balance;
+  await finishOperation(makeEntry({...f.input,kind:'transfer',to:f.accounts[1].key,amount:'100'},f.accounts,f.institutions,f.cfg),f.api,persist);await fresh(f);
+  const group=(await groups(f))[0];
+  await finishOperation(makeAmend(group,{amount:'50',received:'999',description:'Corrected transfer'},f.accounts,f.institutions,f.cfg),f.api,persist);await fresh(f);
+  assert.equal(f.accounts[0].balance+f.accounts[1].balance,total);
+  assert.deepEqual((await groups(f))[0].transactions.map(t=>t.currency_amount),[-50,50]);
+});
 test('cross-currency transfer uses actual amounts and editing/deleting both legs preserves units',async()=>{
   const f=await fixture(),a=f.accounts[0],b=f.accounts[2];
   await finishOperation(makeEntry({...f.input,kind:'transfer',to:b.key,amount:'100',received:'94.50'},f.accounts,f.institutions,f.cfg),f.api,persist);await fresh(f);
@@ -59,6 +67,14 @@ test('external transfers touch only the manual side, with correct incoming/outgo
   const f=await fixture();const initial=f.accounts[0].balance;
   for(const direction of ['out','in']){const op=makeEntry({...f.input,kind:'external',direction},f.accounts,f.institutions,f.cfg);assert.equal(op.changes.length,1);assert.equal(op.steps.filter(s=>s.action==='create').length,1);await finishOperation(op,f.api,persist);await fresh(f);}
   assert.equal(f.accounts[0].balance,initial);
+});
+test('foreign-currency transfer edits use the correct units when the API returns receiving leg first',async()=>{
+  const f=await fixture(),source=f.accounts[0],target=f.accounts[2];
+  await finishOperation(makeEntry({...f.input,kind:'transfer',to:target.key,amount:'100',received:'94'},f.accounts,f.institutions,f.cfg),f.api,persist);await fresh(f);
+  const group=(await groups(f))[0];group.transactions.reverse();
+  await finishOperation(makeAmend(group,{amount:'200',received:'185',description:'Corrected FX transfer'},f.accounts,f.institutions,f.cfg),f.api,persist);await fresh(f);
+  assert.equal(f.accounts[0].balance,source.balance-20000);
+  assert.equal(f.accounts[2].balance,target.balance+18500);
 });
 test('stale balance or sibling changes block a preview before any transaction is posted',async()=>{
   const f=await fixture(),op=makeEntry(f.input,f.accounts,f.institutions,f.cfg);

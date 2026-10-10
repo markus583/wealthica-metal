@@ -33,7 +33,8 @@ function timed(promise) {
 async function load() {
   const institutions=await adapter.request({method:'GET',endpoint:'institutions',query:{deleted:false}});
   state.institutions=institutions;state.accounts=accountsFrom(institutions);
-  const earliest=Object.values(cfg.checkpoints).map(c=>c.date).sort()[0]||today();
+  // Balance checks move forward, but must not hide earlier Power-Up activity.
+  const earliest=cfg.activityFrom||Object.values(cfg.checkpoints).map(c=>c.date).sort()[0]||today();
   const ids=[...new Set(state.accounts.map(a=>a.institution))];
   if(ids.length){
     const rows=await adapter.request({method:'GET',endpoint:'transactions',query:{institutions:ids.join(','),from:earliest,to:today(),deleted:false,skip_reset_new_transactions:true}});
@@ -133,7 +134,10 @@ async function runOperation(op,{recover=false}={}) {
   const active=cfg.pending;
   await finishOperation(active,adapter,async operation=>{cfg.pending=clone(operation);await saveConfig();});
   const completed=clone(active);
-  if(completed.checkpoint){cfg.checkpoints[completed.checkpoint.key]=completed.checkpoint;if(!cfg.enabled.includes(completed.checkpoint.key))cfg.enabled.push(completed.checkpoint.key);}
+  if(completed.checkpoint){
+    cfg.activityFrom ||= Object.values(cfg.checkpoints).map(c=>c.date).sort()[0]||completed.checkpoint.date;
+    cfg.checkpoints[completed.checkpoint.key]=completed.checkpoint;if(!cfg.enabled.includes(completed.checkpoint.key))cfg.enabled.push(completed.checkpoint.key);
+  }
   if(completed.probeStage!==undefined&&cfg.probe){cfg.probe.stage=completed.probeStage+1;if(completed.probeStage===0)cfg.probe.transaction=completed.steps.find(s=>s.action==='create').transaction;}
   cfg.pending=null;
   try {await saveConfig();} catch(error) {cfg.pending=completed;throw error;}
@@ -269,6 +273,7 @@ async function initialize(data={}) {
     if(data.manualAccountsV1){
       if(data.manualAccountsV1.owner!==profileId)throw new Error('These settings belong to a different Wealthica user. Switch back before continuing.');
       cfg=clone(data.manualAccountsV1);if(cfg.version!==1||!Array.isArray(cfg.enabled)||!cfg.checkpoints)throw new Error('The saved configuration format is not supported.');
+      cfg.activityFrom ||= Object.values(cfg.checkpoints).map(c=>c.date).sort()[0]||today();
     }
     if(state.demo){
       const initial=await adapter.request({method:'GET',endpoint:'institutions'});const rows=accountsFrom(initial);
